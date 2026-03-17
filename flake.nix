@@ -3,6 +3,12 @@
     llzk-pkgs.url = "github:project-llzk/llzk-nix-pkgs";
     nixpkgs.follows = "llzk-pkgs/nixpkgs";
     flake-utils.follows = "llzk-pkgs/flake-utils";
+    rust-overlay = { 
+      url = "github:oxalica/rust-overlay"; 
+      inputs = { 
+        nixpkgs.follows = "llzk-pkgs/nixpkgs"; 
+      }; 
+    };
     llzk-lib = {
       url = "github:project-llzk/llzk-lib";
       inputs = {
@@ -37,6 +43,7 @@
       llzk-pkgs,
       llzk-lib,
       pcl-mlir-pkg,
+      rust-overlay
     }:
     {
       # Overlay for downstream consumption
@@ -98,8 +105,6 @@
           llzkSharedEnvironment = {
             nativeBuildInputs = with final; [
               cmake
-              rustc
-              cargo
               llzk-llvmPackages.clang
             ];
 
@@ -113,11 +118,7 @@
 
             devBuildInputs =
               with final;
-              [
-                git
-                rustfmt
-                rustPackages.clippy
-              ]
+              [ git ]
               ++ llzkSharedEnvironment.buildInputs;
 
             # Shared environment variables
@@ -128,6 +129,7 @@
               TABLEGEN_200_PREFIX = "${mlir-with-llvm}";
               LLZK_PCL_ROOT = "${pcl-mlir-pkg}";
               LLZK_PCL_PREFIX = "${final.pcl-mlir}";
+              LLZK_SYS_10_PREFIX = "${final.llzk}";
               LIBCLANG_PATH = "${final.llzk-llvmPackages.libclang.lib}/lib";
               RUST_BACKTRACE = "1";
             };
@@ -146,11 +148,13 @@
 
             # Shared settings for dev shells
             devSettings = {
-              RUSTFLAGS = "-L ${mlir-with-llvm}/lib";
+              RUSTFLAGS = "-lLLVM -L ${mlir-with-llvm}/lib";
               RUST_SRC_PATH = final.rustPlatform.rustLibSrc;
               # Fix _FORTIFY_SOURCE warning on Linux. The same approach used in `pkgSettings` did not work
               # in the dev shell for some reason. In this case, just disable _FORTIFY_SOURCE altogether.
               NIX_CFLAGS_COMPILE = " -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0";
+              # Fix for GNU-like linkers on Linux to avoid removing symbols
+              LLZK_SYS_ENABLE_WHOLE_ARCHIVE = "1";
             };
           };
 
@@ -161,8 +165,6 @@
               rec {
                 pname = "${packageName}-rs";
                 version = (final.lib.importTOML (./. + "/${packageName}/Cargo.toml")).package.version;
-                # Note: for this source to include the `llzk-lib` submodule, the nix command line
-                # must use `.?submodules=1`. For example, `nix build '.?submodules=1#llzk-rs'`.
                 src = ./.;
 
                 nativeBuildInputs = final.llzkSharedEnvironment.nativeBuildInputs;
@@ -200,6 +202,7 @@
         pkgs = import nixpkgs {
           inherit system;
           overlays = [
+            (import rust-overlay)
             self.overlays.default
             llzk-pkgs.overlays.default
             llzk-lib.overlays.default
@@ -213,6 +216,7 @@
           inherit (pkgs) llzk llzk-debug;
           inherit (pkgs) mlir mlir-debug;
           inherit (pkgs) changelogCreator;
+          inherit (pkgs) rust-bin;
           # Prevent use of libllvm and llvm from nixpkgs, which will have
           # different versions than the mlir from llzk-pkgs.
           inherit (pkgs.llzk-llvmPackages) libllvm llvm;
@@ -224,8 +228,20 @@
         devShells = flake-utils.lib.flattenTree {
           default = pkgs.mkShell (
             {
+              nativeBuildInputs = pkgs.llzkSharedEnvironment.nativeBuildInputs ;
+              buildInputs = pkgs.llzkSharedEnvironment.devBuildInputs ++ [
+                pkgs.rust-bin.stable.latest.default
+              ];
+            }
+            // pkgs.llzkSharedEnvironment.env
+            // pkgs.llzkSharedEnvironment.devSettings
+          );
+          nightly = pkgs.mkShell (
+            {
               nativeBuildInputs = pkgs.llzkSharedEnvironment.nativeBuildInputs;
-              buildInputs = pkgs.llzkSharedEnvironment.devBuildInputs;
+              buildInputs = pkgs.llzkSharedEnvironment.devBuildInputs ++ [(
+                pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default)
+              )];
             }
             // pkgs.llzkSharedEnvironment.env
             // pkgs.llzkSharedEnvironment.devSettings

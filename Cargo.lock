@@ -132,15 +132,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cmake"
-version = "0.1.54"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7caa3f9de89ddbe2c607f4101924c5abec803763ae9534e4f4d7d8f84aa81f0"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "comrak"
 version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -373,7 +364,7 @@ checksum = "df1d3c3b53da64cf5760482273a98e575c651a67eec7f77df96b5b642de8f039"
 
 [[package]]
 name = "llzk"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "llzk-macro",
  "llzk-sys",
@@ -393,7 +384,7 @@ dependencies = [
 
 [[package]]
 name = "llzk-macro"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "convert_case",
  "proc-macro2",
@@ -404,7 +395,7 @@ dependencies = [
 
 [[package]]
 name = "llzk-sys"
-version = "0.1.0"
+version = "10.0.0"
 dependencies = [
  "anyhow",
  "llzk-sys-build-support",
@@ -414,13 +405,11 @@ dependencies = [
 
 [[package]]
 name = "llzk-sys-build-support"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "bindgen 0.71.1",
  "cc",
- "cmake",
- "glob",
  "tempfile",
 ]
 
